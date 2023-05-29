@@ -1,0 +1,137 @@
+section .data
+	rmodemsg db 10,'processor is in real mode'
+	rmsg_len:equ $-rmodemsg
+
+	pmodemsg db 10,'processor is in protected mode'
+	pmsg_len:equ $-pmodemsg
+
+	gdtmsg db 10,'GDT contents are::'
+	gmsg_len:equ $-gdtmsg
+
+	ldtmsg db 10,'LDT contents are::'
+	lmsg_len:equ $-ldtmsg
+
+	idtmsg db 10,'IDT contents are::'
+	imsg_len:equ $-idtmsg
+
+	trmsg db 10,'Task register contents are::'
+	tmsg_len:equ $-trmsg
+
+	mswmsg db 10,'machine Status Word::'
+	mmsg_len:equ $-mswmsg
+
+	colmsg db':'
+	nwline db 10
+section .bss
+	gdt resd 1
+	   resw 1
+	ldt resw 1
+	idt resw 1
+	   resw 1
+
+	tr resw 1
+
+	cr0_data resd 1
+
+	dnum_buff resb 04
+
+%macro disp 2
+	mov eax, 4
+	mov ebx, 1
+	mov ecx, %1
+	mov edx, %2
+	int 80h
+%endmacro
+
+section .text
+	global_start
+_start:
+	smsw eax
+
+	mov[cr0_data],eax
+
+	bt eax,1
+	jc prmode
+	disp rmodemsg,rmsg_len
+	jmp nxt1
+
+prmode:
+
+nxt1:	sgdt[gdt]
+	sldt[ldt]
+	sidt[idt]
+	str[tr]
+	disp gdtmsg,gmsg_len
+
+	mov bx,[gdt+4]
+	call disp_num
+
+	mov bx,[gdt+2]
+	call disp_num
+
+	disp colmsg,1
+
+	mov bx,[gdt]
+	call disp_num
+	
+	disp ldtmsg,lmsg_len
+	mov bx,[ldt]
+	call disp_num
+
+	disp idtmsg,imsg_len
+
+	mov bx,[idt+4]
+	call disp_num
+
+	mov bx,[idt+2]
+	call disp_num
+
+	disp colmsg,1
+
+	mov bx,[idt]
+	call disp_num
+	
+	disp trmsg,tmsg_len
+
+	mov bx,[tr]
+	call disp_num
+
+	disp mswmsg,mmsg_len
+
+	mov bx,[cr0_data+2]
+	call disp_num
+
+	mov bx,[cr0_data]
+	call disp_num
+
+	disp nwline,1
+exit:mov eax,01
+	mov ebx,00
+	int 80h
+
+disp_num:
+	mov esi,dnum_buff
+
+	mov ecx,04
+up1:
+	rol bx,4
+	mov dl,bl
+	add dl,0fh
+	add dl,30h
+	cmp dl,39h
+	jbe skip1
+	add dl,07h
+skip1:
+	mov[esi],dl
+	inc esi
+	loop up1
+	disp dnum_buff,4
+	ret
+
+OUTPUT
+GDT contents are::fFFHSFF:/FM 
+LDT contents are::UDF
+IDT contents are::FFJ FFFF:/UEE
+Task register contents are::FFJ 
+machine Status Word::EEEEUDF
+
